@@ -4287,6 +4287,37 @@ idbOpen(function(){idbRestore();});
 // ─── STARTUP ───────────────────────────────────────────────────
 document.getElementById('lpass').addEventListener('keypress',function(e){if(e.key==='Enter')doLogin();});
 window.addEventListener('load',function(){setTimeout(drvInit,2500);});
+// ==========================================
+// CONEXIÓN SEGURA A TU GOOGLE DRIVE
+// ==========================================
+const MI_URL_DRIVE = "https://google.com";
+
+// Modifica los IDs si tus cajas de texto se llaman diferente
+document.querySelector("form").addEventListener("submit", function(e) {
+    e.preventDefault(); 
+
+    const datosEnvio = {
+        producto: document.getElementById("prod") ? document.getElementById("prod").value : "No especificado",
+        cantidad: document.getElementById("cant") ? parseInt(document.getElementById("cant").value) : 1,
+        precio: document.getElementById("prec") ? parseFloat(document.getElementById("prec").value) : 0,
+        metodo_pago: document.getElementById("pago") ? document.getElementById("pago").value : "Efectivo"
+    };
+
+    fetch(MI_URL_DRIVE, {
+        method: "POST",
+        mode: "no-cors", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datosEnvio)
+    })
+    .then(() => {
+        alert("¡Datos guardados en tu Google Sheets de Drive!");
+    })
+    .catch(err => {
+        console.error("Error de red:", err);
+    });
+});
+
+  
 </script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
