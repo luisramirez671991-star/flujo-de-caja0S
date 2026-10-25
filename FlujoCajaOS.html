@@ -4288,13 +4288,14 @@ idbOpen(function(){idbRestore();});
 document.getElementById('lpass').addEventListener('keypress',function(e){if(e.key==='Enter')doLogin();});
 window.addEventListener('load',function(){setTimeout(drvInit,2500);});
 // ==========================================
-// CONEXIÓN SEGURA A TU GOOGLE DRIVE
+// CONEXIÓN CORREGIDA A TU GOOGLE DRIVE
 // ==========================================
 const MI_URL_DRIVE = "https://google.com";
 
-// Modifica los IDs si tus cajas de texto se llaman diferente
 document.querySelector("form").addEventListener("submit", function(e) {
+    // Detiene por completo el sistema viejo que causaba el Error 400
     e.preventDefault(); 
+    e.stopImmediatePropagation();
 
     const datosEnvio = {
         producto: document.getElementById("prod") ? document.getElementById("prod").value : "No especificado",
@@ -4310,12 +4311,12 @@ document.querySelector("form").addEventListener("submit", function(e) {
         body: JSON.stringify(datosEnvio)
     })
     .then(() => {
-        alert("¡Datos guardados en tu Google Sheets de Drive!");
+        alert("¡Datos enviados directamente a tu Google Sheets!");
     })
     .catch(err => {
         console.error("Error de red:", err);
     });
-});
+}, true); // El 'true' le da prioridad a este código sobre el viejo
 
   
 </script>
