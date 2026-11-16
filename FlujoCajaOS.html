@@ -3976,9 +3976,9 @@ function doClean(){
 
 // ─── GOOGLE DRIVE ──────────────────────────────────────────────
 var GD={
-  CID:'61704210381-a2htg4d9agqbtalmtn3q2onva32t165q.apps.googleusercontent.com',
-  SC:'https://www.googleapis.com/auth/drive.appdata',
-  FN:'inventos_v1.json',
+  CID:'48819195567-o5474c92v37nnigedub2auenba75q2em.apps.googleusercontent.com',
+  SC:'https://www.googleapis.com/auth/drive.file',
+  FN:'FlujoCajaOS_datos.json',
   tok:null,fId:null,timer:null,ready:false,tc:null,exp:0,wasConn:false,refreshing:false,reqPending:false,saving:false,again:false,inited:false
 };
 var COLS_SYNC=['products','sales','expenses','investments','gastosFijos','deudas','cxcp','proveedores','historialPrecios','activosFijos','capital','lotes','sucursales','compras','movs','conciliacion'];
@@ -4156,7 +4156,7 @@ function drvBar(){
 }
 function drvFF(){
   try{
-    return gapi.client.drive.files.list({spaces:'appDataFolder',fields:'files(id,name)',q:"name='"+GD.FN+"'"}).then(function(r){
+    return gapi.client.drive.files.list({spaces:'drive',fields:'files(id,name)',q:"name='"+GD.FN+"' and trashed=false"}).then(function(r){
       var f=r.result.files;if(f&&f.length){GD.fId=f[0].id;return f[0];}return null;
     });
   }catch(e){return Promise.reject(e);}
@@ -4168,7 +4168,37 @@ function drvExpired(){
   toast('⚠️ Drive se desconectó: tus datos están a salvo aquí y subirán al reconectar.','#f97316');
   try{renderDash();}catch(e){}
 }
+// Antes de subir: si otro dispositivo cambió Drive desde la última sincronización, se COMBINAN los datos (nunca se sobrescribe a ciegas)
 function drvSave(){
+  if(!GD.tok)return;
+  if(GD.saving||GD.pre){GD.again=true;return;}
+  GD.pre=true;GD.lastSaveTry=Date.now();
+  function fin(){GD.pre=false;}
+  drvFF().then(function(file){
+    if(!file||!GD.fId){fin();drvSaveCore();return;}
+    return fetch('https://www.googleapis.com/drive/v3/files/'+GD.fId+'?alt=media',{headers:{'Authorization':'Bearer '+GD.tok}}).then(function(r){
+      if(r.status===401||r.status===403){fin();drvExpired();return;}
+      if(!r.ok)throw new Error('http '+r.status);
+      return r.json().then(function(d){
+        fin();
+        if(d&&d.v&&d.saved!==lsGet('lastDrive')){
+          var base=null;try{base=JSON.parse(lsGet('syncIds')||'null');}catch(e){}
+          respaldoLocal();idbPutKey('preMergeDrive',Object.assign({},d,{backupAt:new Date().toISOString()}));
+          var merged=mergeData(drvData(),d,base);
+          aplicarSnapshot(merged);
+          persist();
+          toast('🔀 Otro dispositivo había guardado cambios: se combinaron con los tuyos, no se perdió nada','#06d6a0');
+        }
+        drvSaveCore();
+      });
+    });
+  }).catch(function(e){
+    fin();
+    if(drvTokExpiro(e)){drvExpired();return;}
+    drvSt('❌ No se pudo revisar Drive antes de guardar; se reintentará solo','#f43f5e');
+  });
+}
+function drvSaveCore(){
   if(!GD.tok)return;
   if(GD.saving){GD.again=true;return;}
   GD.saving=true;GD.lastSaveTry=Date.now();
@@ -4180,7 +4210,7 @@ function drvSave(){
     if(file&&GD.fId){
       p=fetch('https://www.googleapis.com/upload/drive/v3/files/'+GD.fId+'?uploadType=media',{method:'PATCH',headers:{'Authorization':'Bearer '+GD.tok,'Content-Type':'application/json'},body:body});
     } else {
-      var meta={name:GD.FN,parents:['appDataFolder']};
+      var meta={name:GD.FN};
       var form=new FormData();
       form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
       form.append('file',new Blob([body],{type:'application/json'}));
@@ -4224,7 +4254,7 @@ function mezclarConDrive(d,base){
   persist();
   drvSt('🔀 Se combinaron los datos de este dispositivo con los de Drive; subiendo...','#fbbf24');
   toast('🔀 Se combinaron tus datos con los de Drive: no se perdió nada','#06d6a0');
-  drvSave();
+  drvSaveCore();
 }
 function drvDecide(d){
   var lastDrive=lsGet('lastDrive'),base=null;
